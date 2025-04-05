@@ -8,7 +8,7 @@ from openai import OpenAI
 # Argument parser
 parser = argparse.ArgumentParser(description="Translate Alpaca JSON data to Polish.")
 parser.add_argument('--input', default='data/alpaca_data.json', help='Input JSON file path')
-parser.add_argument('--output', default='data/alpaca_data_translated.jsonl', help='Output JSONL file path')
+parser.add_argument('--output', default='data/alpaca_data_pl.jsonl', help='Output JSONL file path')
 parser.add_argument('--batch-size', type=int, default=10, help='Number of items per request batch')
 parser.add_argument('--recover', action='store_true', help='Enable recovery mode for skipped/malformed items')
 args = parser.parse_args()
@@ -106,13 +106,16 @@ if not recover_mode:
                 print(f"⚠️ Failed to read last index from output file: {e}")
 
     unprocessed_data = alpaca_data[processed_items:]
-    print(f"Resuming from item {processed_items}, processing {len(unprocessed_data)} items in batches of {batch_size}.")
+    tqdm.write(
+        f"Resuming from item {processed_items}, processing {len(unprocessed_data)} items in batches of {batch_size}.")
 
-    with open(output_path, 'a', encoding='utf-8') as f_out:
-        for i in tqdm(range(0, len(unprocessed_data), batch_size), desc="Translating"):
+    with open(output_path, 'a', encoding='utf-8') as f_out, \
+            tqdm(total=len(alpaca_data), initial=processed_items, desc="Translating") as pbar:
+
+        for i in range(0, len(unprocessed_data), batch_size):
             batch_start = processed_items + i
             batch_end = min(processed_items + i + batch_size, len(alpaca_data))
-            tqdm.write(f"\nTranslating items {batch_start + 1}–{batch_end}/{len(alpaca_data)}")
+            tqdm.write(f"🔄 Translating items {batch_start + 1}–{batch_end}/{len(alpaca_data)}")
 
             batch = unprocessed_data[i:i + batch_size]
             translated_batch = translate_batch(batch)
@@ -128,6 +131,8 @@ if not recover_mode:
                 else:
                     tqdm.write(f"⚠️ Skipping malformed item at batch index {idx}:")
                     tqdm.write(json.dumps(translated, indent=2, ensure_ascii=False))
+
+            pbar.update(len(batch))
 
 else:
     print("🔁 Recovery mode activated...")
